@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Extrude polygons for 3D indoor mapping</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1IjoiYmVydHQiLCJhIjoiaWFvN1Z4USJ9.k04Q6CVms4Gx7KDZxvAx2A';
+        const map = new mapboxgl.Map({
+            container: 'map',
+            // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
+            style: 'mapbox://styles/mapbox/streets-v12',
+            center: { lng: -118.31394005437335, lat: 33.87235250322392 },
+            zoom: 19,
+            pitch: 63,
+            bearing: 40,
+            antialias: true
+        });
+
+        map.on('load', () => {
+
+
+            // Create GeoJSON data for a building with 10 floors
+            const buildingGeojson = {
+                'type': 'FeatureCollection',
+                'features': []
+            };
+
+            // Define the base coordinates of the building
+            const baseCoordinates = [[-118.3138382434845, 33.872469969312945], [-118.3138382434845, 33.87233189613225], [-118.31381812691689, 33.87233189613225], [-118.31381812691689, 33.87225840547727], [-118.3138382434845, 33.87225840547727], [-118.31383690237999, 33.8718375032343], [-118.3142338693142, 33.8718375032343], [-118.3142352104187, 33.87225951897251], [-118.31425532698631, 33.87225951897251], [-118.31425532698631, 33.872330782637945], [-118.3142352104187, 33.872330782637945], [-118.3142352104187, 33.87246885582044], [-118.3138382434845, 33.872469969312945]];
+
+            // Create features for each floor
+            for (let i = 0; i < 10; i++) {
+                const floorHeight = i * 4.05; // Each floor is 4 meters high
+                buildingGeojson.features.push({
+                    'type': 'Feature',
+                    'geometry': {
+                        'type': 'Polygon',
+                        'coordinates': [baseCoordinates]
+                    },
+                    'properties': {
+                        floorNumber: i,
+                        'height': floorHeight + 4, // Height of each floor
+                        'color': 'gray',
+                        'base_height': floorHeight
+                    }
+                });
+            }
+
+            //latest floor 
+            buildingGeojson.features.push({
+                'type': 'Feature',
+                'geometry': {
+                    'type': 'Polygon',
+                    'coordinates': [[
+                        [
+                            -118.31413860690874,
+                            33.87239423567455
+                        ],
+                        [
+                            -118.31413860690874,
+                            33.871906022372414
+                        ],
+                        [
+                            -118.31393242224951,
+                            33.871906022372414
+                        ],
+                        [
+                            -118.31393242224951,
+                            33.87239423567455
+                        ],
+                        [
+                            -118.31413860690874,
+                            33.87239423567455
+                        ]
+                    ]]
+                },
+                'properties': {
+                    floorNumber: 10,
+                    'height': 44, // Height of each floor
+                    'color': 'gray',
+                    'base_height': 40
+                }
+            });
+
+            map.addSource('floorplan', {
+                'type': 'geojson',
+                'data': buildingGeojson
+            });
+
+            map.addLayer({
+                'id': 'room-extrusion',
+                'type': 'fill-extrusion',
+                'source': 'floorplan',
+                'paint': {
+                    'fill-extrusion-color': ['get', 'color'],
+                    'fill-extrusion-height': ['get', 'height'],
+                    'fill-extrusion-base': ['get', 'base_height'],
+                    'fill-extrusion-opacity': 1
+                }
+            });
+
+            // map.on('click', function () {
+            //     const s = map.queryRenderedFeatures();
+            //     console.log(s);
+            // });
+
+            map.on("mousemove", function (e) {
+                const features = map.queryRenderedFeatures(e.point, { layers: ["room-extrusion"] });
+                if (features[0] && features[0].properties?.floorNumber) {
+                    const floorNumber = features[0].properties.floorNumber;
+                    if (features.length) {
+                        map.setPaintProperty("room-extrusion", "fill-extrusion-color", ['case'
+                            , ['==', ['get', 'floorNumber'], floorNumber]
+                            , 'red'
+                            , 'gray']);
+
+                    }
+                    map.getCanvas().style.cursor = (features.length) ? 'pointer' : '';
+                } else {
+                    map.setPaintProperty("room-extrusion", "fill-extrusion-color", 'gray');
+
+                }
+            });
+
+        });
+    </script>
+
+</body>
+
+</html>
